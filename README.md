@@ -1,0 +1,290 @@
+# jmdb-backup
+
+Automated **MariaDB** database backups to **Cloudflare R2**, delivered as a
+single native **Windows console `.exe`**.
+
+The program stays in the console and dumps every configured database with
+`mysqldump` on a daily schedule (default `00:00`, `05:00`, `12:00`, `17:00`
+machine-local time), compresses each dump with gzip, and uploads it to an R2
+bucket through the S3 API. Everything is configurable from a YAML file — no
+recompilation needed — and optional retention cleanup deletes old backups
+automatically.
+
+Built with Go, the binary is native machine code with symbols stripped, which
+makes it resistant to decompilation (see [Hardening](#hardening-and-decompilation)).
+
+## Features
+
+- **Scheduled backups** at any list of daily times (`schedule.times`, default
+  `00:00 / 05:00 / 12:00 / 17:00` local time)
+- **Multiple databases** per run (default: `jmdatabase`)
+- **Complete dumps**: stored routines, triggers and events are included via
+  `--routines --triggers --events`; `--single-transaction` for a consistent
+  snapshot without locking InnoDB writes
+- **gzip compression** before upload (or `none`)
+- **Cloudflare R2 upload** (S3-compatible API, battle-tested `minio-go` client)
+- **Retention cleanup**: automatically deletes R2 objects older than
+  `storage.retentionDays`
+- **Catch-up on startup**: if a scheduled time passed while the program was
+  stopped (e.g. after a reboot), it runs one backup as soon as it starts
+  (`schedule.catchUpOnStartup`)
+- **No duplicate runs**: the timestamp of the last successful backup is stored
+  in `state.json` next to the config
+- **Secrets never hard-coded**: the config file supports `${ENV_VAR}`
+  placeholders; the MariaDB password is passed to `mysqldump` through the
+  `MYSQL_PWD` environment variable, never on the command line
+- **Console-friendly commands**: `-validate`, `-once`, `-next`
+- Fully **unit-tested** scheduler, config and compression logic
+
+## Requirements
+
+| Requirement | Notes |
+|---|---|
+| Windows 10/11 x64 | Where the `.exe` runs |
+| `mysqldump.exe` | Ships with MariaDB/MySQL. Path is auto-detected (PATH, then common install folders: `Program Files\MariaDB*`, XAMPP, Laragon, WAMP) or set explicitly in `config.yaml` |
+| Cloudflare R2 | An existing bucket and an API token with **Object Read & Write** (and bucket permissions) scoped to that bucket |
+| Go 1.26+ | Only needed to build; the shipped `.exe` needs no runtime |
+
+## Project layout
+
+```
+jmdb-backup.exe        Built binary (console app)
+config.example.yaml    Configuration template
+config.go              Config loading, ${ENV_VAR} expansion, defaults
+main.go                CLI flags, scheduler loop, catch-up, validation
+backup.go              mysqldump -> gzip -> upload pipeline
+r2.go                  Cloudflare R2 client, upload, retention, gzip helper
+scheduler.go           Schedule math + persisted state
+log.go                 Timestamped console + file logger
+main_test.go           Unit tests
+build.bat              Windows build script
+```
+
+## Quick start
+
+### 1. Build the executable (once, requires Go)
+
+From a terminal in the project folder:
+
+```bat
+build.bat
+```
+
+or manually:
+
+```bat
+go mod download
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o jmdb-backup.exe .
+```
+
+The result is a single static `jmdb-backup.exe` with no runtime dependencies.
+
+> To make the binary considerably harder to reverse-engineer, build with
+> [garble](https://github.com/burrowers/garble) instead:
+> ```bat
+> go install mvdan.cc/garble@latest
+> garble -literals -tiny -ldflags "-s -w" build -o jmdb-backup.exe .
+> ```
+> See [Hardening](#hardening-and-decompilation).
+
+### 2. Create the config file
+
+```bat
+copy config.example.yaml config.yaml
+```
+
+### 3. Prepare Cloudflare R2
+
+1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `jmdb-backups`).
+2. R2 → **Manage R2 API Tokens** → create a token with **Object Read &
+   Write** scoped to that bucket.
+3. Copy the **Access Key ID** and **Secret Access Key**.
+4. Find your **Account ID** on the R2 overview page (right sidebar). Your
+   endpoint is `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+
+### 4. Fill in `config.yaml`
+
+Edit the file and set at minimum:
+
+```yaml
+database:
+  password: "your_mariadb_password"     # or "${MARIADB_PASSWORD}"
+  databases:
+    - "jmdatabase"
+
+cloudflareR2:
+  endpoint: "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+  accessKeyId: "<your_access_key_id>"
+  secretAccessKey: "<your_secret_access_key>"
+  bucket: "<your_bucket>"
+```
+
+Recommended: keep secrets out of the file using environment variables, e.g.
+
+```yaml
+database:
+  password: "${MARIADB_PASSWORD}"
+cloudflareR2:
+  accessKeyId: "${R2_ACCESS_KEY_ID}"
+  secretAccessKey: "${R2_SECRET_ACCESS_KEY}"
+```
+
+then set them once in Windows (`setx` takes effect in new terminals):
+
+```bat
+setx MARIADB_PASSWORD "your_mariadb_password"
+setx R2_ACCESS_KEY_ID "your_access_key_id"
+setx R2_SECRET_ACCESS_KEY "your_secret_access_key"
+```
+
+### 5. Validate and run
+
+```bat
+jmdb-backup.exe -validate      REM check config, mysqldump and R2 access
+jmdb-backup.exe -once          REM run one backup immediately and exit
+jmdb-backup.exe                REM stay in the console and run on schedule
+```
+
+## Configuration reference
+
+Every string supports `${ENV_VAR}` / `$ENV_VAR` expansion.
+
+| Section / field | Type | Default | Description |
+|---|---|---|---|
+| `database.mysqldumpPath` | string | `""` | Full path to `mysqldump.exe`. Empty = auto-detect |
+| `database.host` | string | `127.0.0.1` | MariaDB/MySQL host |
+| `database.port` | int | `3306` | Server port |
+| `database.user` | string | `root` | Backup user |
+| `database.password` | string | `""` | Password (via `MYSQL_PWD`; use `${ENV_VAR}`) |
+| `database.databases` | string[] | `["jmdatabase"]` | Databases to dump |
+| `database.extraDumpOptions` | string[] | `--single-transaction --routines --triggers --events --hex-blob` | Extra `mysqldump` flags |
+| `schedule.times` | string[] | `["00:00","05:00","12:00","17:00"]` | Daily backup times, 24h `HH:MM` local |
+| `schedule.catchUpOnStartup` | bool | `true` | Run a backup on start if a slot was missed |
+| `storage.compression` | string | `gzip` | `gzip` or `none` |
+| `storage.objectPrefix` | string | `backup` | R2 folder for backups |
+| `storage.retentionDays` | int | `30` | Delete R2 objects older than N days (`0` = keep forever) |
+| `cloudflareR2.endpoint` | string | — | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `cloudflareR2.accessKeyId` | string | — | R2 API token key id |
+| `cloudflareR2.secretAccessKey` | string | — | R2 API token secret |
+| `cloudflareR2.bucket` | string | — | Existing R2 bucket name |
+| `cloudflareR2.region` | string | `auto` | R2 accepts `auto`; leave as is |
+| `logging.logFile` | string | `""` | Append logs here; empty = console only |
+
+> **`extraDumpOptions` note:** MySQL 8 / MariaDB 11 users may add
+> `--set-gtid-purged=OFF`. Older MySQL 5.x builds (e.g. XAMPP) reject that
+> flag, so it is intentionally not a default.
+
+### Object layout in R2
+
+```
+backup/jmdatabase/2026-09-06_00-00-00.sql.gz
+```
+
+## Usage
+
+| Command | Description |
+|---|---|
+| `jmdb-backup.exe` | Resident mode: sleeps until the next scheduled time, backs up, repeats |
+| `jmdb-backup.exe -config <file>` | Use a different config path (default `config.yaml`) |
+| `jmdb-backup.exe -once` | Run a single backup immediately, then exit |
+| `jmdb-backup.exe -validate` | Check config, locate `mysqldump`, test R2 access, then exit |
+| `jmdb-backup.exe -next` | Print the next six upcoming backup times, then exit |
+| `jmdb-backup.exe -h` | Help |
+
+**Exit codes:** `0` success, `1` backup/validation failure, `2` bad usage or
+unreadable config. When double-clicked, the console stays open on error so the
+message can be read.
+
+### Resident mode vs. Windows Task Scheduler
+
+- **Resident mode** (recommended for several daily times) keeps the schedule
+  in-process; close the window to stop it. The catch-up feature covers
+  restarts/reboots while the machine was off.
+- **Task Scheduler** runs `-once` at boot or at a fixed time without an open
+  window — e.g. one daily backup at `00:00`:
+
+```bat
+schtasks /Create /TN "jmdb-backup" /TR "C:\path\to\jmdb-backup.exe -once -config C:\path\to\config.yaml" /SC DAILY /ST 00:00 /F
+```
+
+For four runs per day via Task Scheduler, create four tasks with different
+`/ST` times, or just leave the resident console app running.
+
+## Restoring a backup
+
+Download an object from R2 (any S3 client works — `rclone`, `aws s3`, the R2
+dashboard), decompress and import:
+
+```bat
+gzip -d jmdatabase_2026-09-06_00-00-00.sql.gz
+mysql -u root -p jmdatabase < jmdatabase_2026-09-06_00-00-00.sql
+```
+
+## How a backup run works
+
+1. `mysqldump` is located (configured path → PATH → common install folders).
+2. For each database: `mysqldump` streams a full logical dump to a temporary
+   file (routines, triggers and events included; password via `MYSQL_PWD`).
+3. The dump is compressed with gzip (`storage.compression`).
+4. The finished `.sql.gz` is uploaded to R2 under `objectPrefix/<db>/<timestamp>.sql.gz`.
+5. If `retentionDays > 0`, R2 objects under the prefix older than the cutoff
+   are deleted.
+6. On success the run timestamp is persisted to `state.json`; on failure it is
+   not, so a restart can retry.
+
+Missed runs are only retried **once** on startup (the latest missed slot), so a
+long outage cannot trigger a pile-up of catch-up backups.
+
+## Hardening and decompilation
+
+Being written in Go, the binary is **native machine code** — not bytecode/IL
+like .NET or Java — and the release build strips symbols and debug info
+(`-ldflags "-s -w"`). Decompiling it yields assembly-level output that is
+impractical to recover meaningful source from.
+
+To raise the bar further:
+
+```bat
+go install mvdan.cc/garble@latest
+garble -literals -tiny -ldflags "-s -w" build -o jmdb-backup.exe .
+```
+
+`garble` obfuscates control flow, identifiers and string literals.
+
+> **Honest caveat:** no compiled program is mathematically impossible to
+> reverse-engineer — hardening makes it expensive and slow, not impossible.
+> Therefore, never embed secrets in the binary. Credentials live in
+> `config.yaml` (restrict its file permissions) or in environment variables,
+> and the R2 token should be scoped to the backup bucket only.
+
+## Security notes
+
+- `config.yaml` contains credentials — restrict access to it (or keep secrets
+  in environment variables referenced via `${VAR}`).
+- The MariaDB password is exported as `MYSQL_PWD` to the `mysqldump` child
+  process; it never appears in the process command line.
+- R2 API tokens should be read/write **only on the backup bucket**.
+- `state.json` (last successful run) is created next to the config file.
+- `.gitignore` excludes `config.yaml`, `state.json`, `backup.log` and built
+  `.exe` files so credentials are never committed by accident.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `mysqldump not found` | Set `database.mysqldumpPath` to the full path, e.g. `C:\Program Files\MariaDB 11.4\bin\mysqldump.exe` |
+| R2 `tls: handshake failure` | The endpoint host is wrong — use `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `bucket ... does not exist` | Create the bucket, or check the token permission scope |
+| `AccessDenied` on upload | The API token needs **Object Read & Write** for that bucket |
+| Dump fails with `unknown variable` | Your `mysqldump` is older — remove MySQL 8-only flags from `extraDumpOptions` |
+| Database connection refused | MariaDB service not running, wrong host/port/user/password in config |
+
+Logs are written to the console and, if configured, to `logging.logFile`
+(`backup.log` by default).
+
+## Development
+
+```bat
+go vet .
+go test ./...
+```

@@ -1,0 +1,10 @@
+# build output
+*.exe
+*.exe.manifest
+
+# your real config contains credentials - never commit it
+config.yaml
+
+# runtime artifacts
+state.json
+backup.log

@@ -1,0 +1,61 @@
+# =============================================================
+#  jmdb-backup configuration
+#  Copy this file to config.yaml and fill in YOUR values.
+#  Every value supports ${ENV_VAR} so secrets can stay in
+#  environment variables instead of this file, e.g.
+#    password: "${MARIADB_PASSWORD}"
+# =============================================================
+
+database:
+  # Full path to mysqldump.exe. Leave empty to auto-detect on PATH and in
+  # common install folders (Program Files\MariaDB*, XAMPP, Laragon, WAMP).
+  mysqldumpPath: ""            # e.g. "C:\\Program Files\\MariaDB 11.4\\bin\\mysqldump.exe"
+
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "CHANGE_ME"        # or "${MARIADB_PASSWORD}"
+
+  # Databases to back up.
+  databases:
+    - "jmdatabase"
+
+  # Extra flags passed to mysqldump (safe defaults for InnoDB + routines).
+  # MySQL 8 / MariaDB 11 users may add "--set-gtid-purged=OFF" here,
+  # but older MySQL 5.x (e.g. XAMPP) rejects that flag, so it is not default.
+  extraDumpOptions:
+    - "--single-transaction"
+    - "--routines"
+    - "--triggers"
+    - "--events"
+    - "--hex-blob"
+
+schedule:
+  # Daily backup times, 24h format, machine local time.
+  times:
+    - "00:00"
+    - "05:00"
+    - "12:00"
+    - "17:00"
+
+  # If the program was stopped and a scheduled time passed, run one
+  # backup right after startup so a reboot does not lose that backup.
+  catchUpOnStartup: true
+
+storage:
+  compression: "gzip"          # "gzip" or "none"
+  objectPrefix: "backup"       # objects: backup/jmdatabase/2026-09-06_00-00-00.sql.gz
+  retentionDays: 30            # delete R2 objects older than 30 days (0 = keep forever)
+
+cloudflareR2:
+  # Replace ACCOUNT_ID with your Cloudflare account id
+  # (Dashboard -> R2 -> right column). The API must have R2 permissions.
+  endpoint: "https://ACCOUNT_ID.r2.cloudflarestorage.com"
+  accessKeyId: "CHANGE_ME"     # or "${R2_ACCESS_KEY_ID}"
+  secretAccessKey: "CHANGE_ME" # or "${R2_SECRET_ACCESS_KEY}"
+  bucket: "CHANGE_ME"          # existing R2 bucket name
+  region: "auto"               # R2 accepts "auto", do not change
+
+logging:
+  # Append logs to this file next to the exe. Empty = console only.
+  logFile: "backup.log"
