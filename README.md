@@ -58,6 +58,7 @@ scheduler.go           Schedule math + persisted state
 log.go                 Timestamped console + file logger
 main_test.go           Unit tests
 build.bat              Windows build script
+deploy.bat             Pack exe + config into a clean deploy folder
 ```
 
 ## Quick start
@@ -209,6 +210,53 @@ schtasks /Create /TN "jmdb-backup" /TR "C:\path\to\jmdb-backup.exe -once -config
 
 For four runs per day via Task Scheduler, create four tasks with different
 `/ST` times, or just leave the resident console app running.
+
+## Deploying to a real server
+
+Only **two files** are needed on the destination machine:
+
+```
+jmdb-backup.exe
+config.yaml
+```
+
+Everything else in this repository exists only for building the executable.
+`config.yaml` is your edited copy of `config.example.yaml` (see
+[Quick start](#quick-start)).
+
+### deploy.bat
+
+`deploy.bat` packs exactly those two files into a clean folder that you can
+ship (zip, USB stick, network copy):
+
+```bat
+REM pack into .\deploy  (default; the folder is wiped and recreated)
+deploy.bat
+
+REM pack into a specific folder, e.g. on a USB stick
+deploy.bat D:\backup
+```
+
+Behavior:
+
+- **Refuses to run** if `jmdb-backup.exe` or `config.yaml` is missing, or if
+  you point it at the project root.
+- **Target inside the project** (default `deploy\`): deleted and recreated on
+  every run, so the pack is always clean — keep nothing else in that folder.
+- **Target outside the project**: the folder is created and files copied
+  without wiping existing content.
+- Prints a **shipping checklist** once packed: verify DB/R2 settings in
+  `config.yaml`, ensure `mysqldump` exists on the destination, then run
+  `-validate`, `-once`, confirm the `.sql.gz` appears in R2, and start the
+  scheduler (resident console or Task Scheduler).
+
+After copying the folder to the server, follow the checklist: the exe is a
+standalone binary (no Go runtime needed) and `mysqldump` must be reachable on
+that machine.
+
+> **Security:** `config.yaml` contains credentials (DB password, R2 keys).
+> Protect the folder permissions, and never commit `config.yaml` or the
+> `deploy/` pack — both are in `.gitignore`.
 
 ## Restoring a backup
 

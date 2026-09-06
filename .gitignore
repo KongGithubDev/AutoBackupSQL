@@ -5,6 +5,10 @@
 # your real config contains credentials - never commit it
 config.yaml
 
+# deploy packs contain a copy of config.yaml (credentials)
+deploy/
+*.zip
+
 # runtime artifacts
 state.json
 backup.log
