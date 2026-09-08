@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="336" viewBox="0 0 700 336" font-family="Consolas, 'Courier New', monospace">
+  <defs>
+    <linearGradient id="cardBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f6f8fa"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="698" height="334" rx="12" fill="url(#cardBg)" stroke="#d0d7de"/>
+
+  <text x="24" y="48" font-size="14" font-weight="bold" fill="#0969da">s3://my-bucket</text>
+
+  <text x="24" y="76" font-size="13" fill="#57606a"><tspan fill="#6e7781">└──</tspan> <tspan fill="#0969da">backup/</tspan> <tspan fill="#8b949e" font-style="italic">← storage.objectPrefix</tspan></text>
+  <text x="24" y="98" font-size="13" fill="#57606a"><tspan fill="#6e7781">    └──</tspan> <tspan fill="#0969da">jmdatabase/</tspan> <tspan fill="#8b949e" font-style="italic">← one folder per database</tspan></text>
+  <text x="24" y="120" font-size="13" fill="#57606a"><tspan fill="#6e7781">        ├──</tspan> <tspan fill="#0969da">2026-09-08_23-26-50/</tspan> <tspan fill="#8b949e" font-style="italic">← one folder per run</tspan></text>
+  <text x="24" y="142" font-size="13" fill="#57606a"><tspan fill="#6e7781">        │   ├──</tspan> players.sql.gz</text>
+  <text x="24" y="164" font-size="13" fill="#57606a"><tspan fill="#6e7781">        │   ├──</tspan> vehicles.sql.gz</text>
+  <text x="24" y="186" font-size="13" fill="#57606a"><tspan fill="#6e7781">        │   ├──</tspan> houses.sql.gz</text>
+  <text x="24" y="208" font-size="13" fill="#57606a"><tspan fill="#6e7781">        │   └──</tspan> ... <tspan fill="#8b949e" font-style="italic">(one .sql.gz per table)</tspan></text>
+  <text x="24" y="230" font-size="13" fill="#57606a"><tspan fill="#6e7781">        ├──</tspan> <tspan fill="#0969da">2026-09-08_17-00-00/</tspan></text>
+  <text x="24" y="252" font-size="13" fill="#57606a"><tspan fill="#6e7781">        │   └──</tspan> ...</text>
+  <text x="24" y="274" font-size="13" fill="#57606a"><tspan fill="#6e7781">        └──</tspan> <tspan fill="#0969da">2026-09-07_17-00-00/</tspan></text>
+  <text x="24" y="296" font-size="13" fill="#57606a"><tspan fill="#6e7781">            └──</tspan> ...</text>
+</svg>

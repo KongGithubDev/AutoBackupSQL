@@ -1,5 +1,10 @@
 # kdb-backup
 
+[![Go](https://img.shields.io/github/go-mod/go-version/KongGithubDev/AutoBackupSQL)](https://go.dev/dl/)
+[![License](https://img.shields.io/github/license/KongGithubDev/AutoBackupSQL)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078d6)](#requirements)
+[![Storage](https://img.shields.io/badge/storage-Cloudflare%20R2-F38020)](https://www.cloudflare.com/r2/)
+
 Automated **MariaDB** database backups to **Cloudflare R2**, delivered as a
 single native **Windows console `.exe`**.
 
@@ -15,6 +20,12 @@ deletes old backups automatically.
 
 Built with Go, the binary is native machine code with symbols stripped, which
 makes it resistant to decompilation (see [Hardening](#hardening-and-decompilation)).
+
+## Example output
+
+What a resident run looks like on the console (and in `logging.logFile`):
+
+![kdb-backup console log](assets/log-example.svg)
 
 ## Features
 
@@ -67,6 +78,8 @@ log.go                 Timestamped console + file logger
 main_test.go           Unit tests
 build.bat              Windows build script
 deploy.bat             Pack exe + config into a clean deploy folder
+assets/                README example images (log output, R2 layout)
+LICENSE                MIT license
 ```
 
 ## Quick start
@@ -200,6 +213,8 @@ Single-file mode (`storage.perTable: false`):
 ```
 backup/jmdatabase/2026-09-06_00-00-00.sql.gz
 ```
+
+![R2 object structure](assets/r2-structure.svg)
 
 ## Usage
 

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="396" viewBox="0 0 1120 396" font-family="Consolas, 'Courier New', monospace">
+  <defs>
+    <linearGradient id="termBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161b22"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="1118" height="394" rx="12" fill="url(#termBg)" stroke="#30363d"/>
+  <circle cx="30" cy="28" r="7" fill="#ff5f56"/>
+  <circle cx="54" cy="28" r="7" fill="#ffbd2e"/>
+  <circle cx="78" cy="28" r="7" fill="#27c93f"/>
+  <text x="560" y="33" text-anchor="middle" font-size="13" fill="#8b949e">kdb-backup — resident console</text>
+  <line x1="14" y1="50" x2="1106" y2="50" stroke="#30363d"/>
+
+  <text x="24" y="80" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:48]</tspan> <tspan fill="#58a6ff">INFO</tspan>  kdb-backup v1.1.0 started (config: config.yaml)</text>
+  <text x="24" y="102" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:48]</tspan> <tspan fill="#58a6ff">INFO</tspan>  schedule times: 00:00, 05:00, 12:00, 17:00</text>
+  <text x="24" y="124" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:48]</tspan> <tspan fill="#58a6ff">INFO</tspan>  databases: jmdatabase | R2 bucket: my-bucket | prefix: backup | retentionDays: 30</text>
+  <text x="24" y="146" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  R2 bucket "my-bucket" reachable</text>
+  <text x="24" y="168" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  scheduled time 2026-09-08 17:00 was missed -&gt; running catch-up backup</text>
+  <text x="24" y="190" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  backup run started (catch-up after restart)</text>
+  <text x="24" y="212" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  using mysqldump: C:\Program Files\MariaDB 11.4\bin\mysqldump.exe</text>
+  <text x="24" y="234" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  using mysql client: C:\Program Files\MariaDB 11.4\bin\mysql.exe</text>
+  <text x="24" y="256" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:50]</tspan> <tspan fill="#58a6ff">INFO</tspan>  backup started: database=jmdatabase (12 table(s))</text>
+  <text x="24" y="278" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:51]</tspan> <tspan fill="#58a6ff">INFO</tspan>  dump ok: jmdatabase.players (1,234,567 bytes) -&gt; compressing</text>
+  <text x="24" y="300" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:52]</tspan> <tspan fill="#58a6ff">INFO</tspan>  uploading to R2: backup/jmdatabase/2026-09-08_23-26-50/players.sql.gz (234,567 bytes)</text>
+  <text x="24" y="322" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:52]</tspan> <tspan fill="#58a6ff">INFO</tspan>  backup finished: database=jmdatabase table=players object=backup/jmdatabase/2026-09-08_23-26-50/players.sql.gz</text>
+  <text x="24" y="344" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:53]</tspan> <tspan fill="#58a6ff">INFO</tspan>  backup run finished: 12 object(s) uploaded to R2</text>
+  <text x="24" y="366" font-size="13" fill="#c9d1d9"><tspan fill="#6e7681">[2026-09-08 23:26:53]</tspan> <tspan fill="#58a6ff">INFO</tspan>  next backup at 2026-09-09 00:00</text>
+</svg>
