@@ -82,6 +82,7 @@ build.bat              Windows build script
 deploy.bat             Pack exe + config into a clean deploy folder
 assets/                README example images (log output, R2 layout)
 LICENSE                MIT license
+.github/workflows/     CI: vet + test + build exe, release on version tags
 ```
 
 ## Quick start
@@ -402,3 +403,9 @@ Logs are written to the console and, if configured, to `logging.logFile`
 go vet .
 go test ./...
 ```
+
+The repository ships a GitHub Actions workflow (`.github/workflows/build.yml`)
+that runs on every push to `main`: it vets, tests, builds `kdb-backup.exe` on a
+Windows runner and uploads it as an Actions artifact. Pushing a version tag
+(e.g. `git tag v1.1.0 && git push origin v1.1.0`) additionally creates a GitHub
+**Release** with the `.exe` attached — no local Go install needed.
