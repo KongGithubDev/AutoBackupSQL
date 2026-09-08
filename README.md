@@ -241,6 +241,9 @@ Behavior:
 
 - **Refuses to run** if `jmdb-backup.exe` or `config.yaml` is missing, or if
   you point it at the project root.
+- **Never closes silently** — the window stays open with `Press any key to
+  continue` after both success and failure, so double-clicking always shows
+  you the result instead of a window that flashes and disappears.
 - **Target inside the project** (default `deploy\`): deleted and recreated on
   every run, so the pack is always clean — keep nothing else in that folder.
 - **Target outside the project**: the folder is created and files copied

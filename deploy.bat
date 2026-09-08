@@ -14,6 +14,9 @@ REM
 REM  Default target folder: .\deploy
 REM  NOTE: if the target folder exists inside this project it is
 REM  DELETED and recreated, so keep anything else out of it.
+REM
+REM  The window stays open at the end (press any key to close),
+REM  so double-clicking always shows you the result.
 REM ============================================================
 
 set "TARGET=%~1"
@@ -22,16 +25,8 @@ if "%TARGET%"=="" set "TARGET=deploy"
 echo === jmdb-backup deploy pack ===
 
 REM ---- 1. source files must exist ----
-if not exist "jmdb-backup.exe" (
-    echo [FAIL] jmdb-backup.exe not found. Run build.bat first.
-    exit /b 1
-)
-if not exist "config.yaml" (
-    echo [FAIL] config.yaml not found.
-    echo        First create it from the template and fill in real values:
-    echo          copy config.example.yaml config.yaml
-    exit /b 1
-)
+if not exist "jmdb-backup.exe" goto :no_exe
+if not exist "config.yaml" goto :no_config
 
 REM ---- 2. resolve absolute paths ----
 for %%I in ("%~dp0.")   do set "PROJROOT=%%~fI"
@@ -43,7 +38,7 @@ if errorlevel 1 goto :outside_project
 
 if /I "%TGTABS%"=="%PROJROOT%" (
     echo [FAIL] Refusing to use the project root as the deploy folder.
-    exit /b 1
+    goto :fail
 )
 if exist "%TGTABS%" rmdir /s /q "%TGTABS%"
 mkdir "%TGTABS%"
@@ -56,15 +51,9 @@ goto :copy_files
 
 :copy_files
 copy /y "jmdb-backup.exe" "%TGTABS%\" >nul
-if errorlevel 1 (
-    echo [FAIL] Could not copy jmdb-backup.exe to "%TGTABS%"
-    exit /b 1
-)
+if errorlevel 1 goto :copy_failed
 copy /y "config.yaml" "%TGTABS%\" >nul
-if errorlevel 1 (
-    echo [FAIL] Could not copy config.yaml to "%TGTABS%"
-    exit /b 1
-)
+if errorlevel 1 goto :copy_failed
 
 echo.
 echo Deploy folder ready: %TGTABS%
@@ -89,4 +78,30 @@ echo   [ ] SECURITY: config.yaml contains credentials. Protect the folder
 echo       permissions and never commit config.yaml or the deploy folder.
 echo.
 echo Pack done.
+goto :finish
+
+:no_exe
+echo [FAIL] jmdb-backup.exe not found. Run build.bat first.
+goto :fail
+
+:no_config
+echo [FAIL] config.yaml not found.
+echo        First create it from the template and fill in real values:
+echo          copy config.example.yaml config.yaml
+goto :fail
+
+:copy_failed
+echo [FAIL] Could not copy the files to "%TGTABS%"
+goto :fail
+
+:fail
+echo.
+echo Nothing was copied. Fix the problem above, then run deploy.bat again.
+echo.
+pause
+exit /b 1
+
+:finish
+echo.
+pause
 exit /b 0
