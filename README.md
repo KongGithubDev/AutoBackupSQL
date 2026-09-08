@@ -23,6 +23,34 @@ deletes old backups automatically.
 Built with Go, the binary is native machine code with symbols stripped, which
 makes it resistant to decompilation (see [Hardening](#hardening-and-decompilation)).
 
+<details>
+<summary><strong>Table of Contents</strong></summary>
+
+- [Example output](#example-output)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Project layout](#project-layout)
+- [Quick start](#quick-start)
+  - [1. Build the executable](#1-build-the-executable-once-requires-go)
+  - [2. Create the config file](#2-create-the-config-file)
+  - [3. Prepare Cloudflare R2](#3-prepare-cloudflare-r2)
+  - [4. Fill in config.yaml](#4-fill-in-configyaml)
+  - [5. Validate and run](#5-validate-and-run)
+- [Configuration reference](#configuration-reference)
+  - [Object layout in R2](#object-layout-in-r2)
+- [Usage](#usage)
+  - [Resident mode vs. Windows Task Scheduler](#resident-mode-vs-windows-task-scheduler)
+- [Deploying to a real server](#deploying-to-a-real-server)
+  - [deploy.bat](#deploybat)
+- [Restoring a backup](#restoring-a-backup)
+- [How a backup run works](#how-a-backup-run-works)
+- [Hardening and decompilation](#hardening-and-decompilation)
+- [Security notes](#security-notes)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+
+</details>
+
 ## Example output
 
 What a resident run looks like on the console (and in `logging.logFile`):
