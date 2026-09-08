@@ -5,6 +5,8 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-0078d6)](#requirements)
 [![Storage](https://img.shields.io/badge/storage-Cloudflare%20R2-F38020)](https://www.cloudflare.com/r2/)
 
+![kdb-backup](preview.png)
+
 Automated **MariaDB** database backups to **Cloudflare R2**, delivered as a
 single native **Windows console `.exe`**.
 
