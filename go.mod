@@ -1,4 +1,4 @@
-module jmdb-backup
+module kdb-backup
 
 go 1.26
 

@@ -3,11 +3,11 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 REM ============================================================
-REM  deploy.bat - pack jmdb-backup for the real server
+REM  deploy.bat - pack kdb-backup for the real server
 REM
 REM  Usage:   deploy.bat [target-folder]
 REM
-REM  Copies ONLY jmdb-backup.exe and config.yaml into a clean
+REM  Copies ONLY kdb-backup.exe and config.yaml into a clean
 REM  folder you can ship (zip / USB / copy). Then prints a
 REM  checklist to run through on the destination machine.
 REM
@@ -22,10 +22,10 @@ REM ============================================================
 set "TARGET=%~1"
 if "%TARGET%"=="" set "TARGET=deploy"
 
-echo === jmdb-backup deploy pack ===
+echo === kdb-backup deploy pack ===
 
 REM ---- 1. source files must exist ----
-if not exist "jmdb-backup.exe" goto :no_exe
+if not exist "kdb-backup.exe" goto :no_exe
 if not exist "config.yaml" goto :no_config
 
 REM ---- 2. resolve absolute paths ----
@@ -50,14 +50,14 @@ if not exist "%TGTABS%" mkdir "%TGTABS%"
 goto :copy_files
 
 :copy_files
-copy /y "jmdb-backup.exe" "%TGTABS%\" >nul
+copy /y "kdb-backup.exe" "%TGTABS%\" >nul
 if errorlevel 1 goto :copy_failed
 copy /y "config.yaml" "%TGTABS%\" >nul
 if errorlevel 1 goto :copy_failed
 
 echo.
 echo Deploy folder ready: %TGTABS%
-echo Contains exactly: jmdb-backup.exe  config.yaml
+echo Contains exactly: kdb-backup.exe  config.yaml
 echo.
 
 echo === Checklist - run through before trusting it on the real machine ===
@@ -65,13 +65,15 @@ echo   [ ] config.yaml:  host/port/user/password correct, databases include jmda
 echo   [ ] config.yaml:  cloudflareR2.endpoint has ACCOUNT_ID replaced
 echo   [ ] config.yaml:  accessKeyId / secretAccessKey / bucket are set
 echo   [ ] config.yaml:  schedule.times shows the times you want
+echo   [ ] config.yaml:  storage.perTable true = one .sql.gz per table,
+echo       false = one combined .sql.gz per database
 echo   [ ] destination machine has MariaDB running and mysqldump available
 echo       (or set database.mysqldumpPath in config.yaml)
-echo   [ ] on the server run:   jmdb-backup.exe -validate -config config.yaml
-echo   [ ] test one backup:      jmdb-backup.exe -once  -config config.yaml
-echo   [ ] confirm the .sql.gz file appears in your R2 bucket
+echo   [ ] on the server run:   kdb-backup.exe -validate -config config.yaml
+echo   [ ] test one backup:      kdb-backup.exe -once  -config config.yaml
+echo   [ ] confirm the .sql.gz files appear in your R2 bucket
 echo   [ ] start it for real:
-echo       - resident console (double-click jmdb-backup.exe), or
+echo       - resident console (double-click kdb-backup.exe), or
 echo       - Windows Task Scheduler for -once at fixed time (see README)
 echo.
 echo   [ ] SECURITY: config.yaml contains credentials. Protect the folder
@@ -81,7 +83,7 @@ echo Pack done.
 goto :finish
 
 :no_exe
-echo [FAIL] jmdb-backup.exe not found. Run build.bat first.
+echo [FAIL] kdb-backup.exe not found. Run build.bat first.
 goto :fail
 
 :no_config

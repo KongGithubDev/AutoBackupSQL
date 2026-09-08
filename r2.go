@@ -65,6 +65,17 @@ func (s *r2Store) objectKey(dbName string, t time.Time, gzipped bool) string {
 	return fmt.Sprintf("%s/%s/%s%s", s.prefix, safeDB, stamp, ext)
 }
 
+// tableObjectKey builds the per-table destination key:
+// <prefix>/<db>/<stamp>/<table>.sql[.gz]
+func (s *r2Store) tableObjectKey(dbName, tableName string, t time.Time, gzipped bool) string {
+	stamp := t.Format("2006-01-02_15-04-05")
+	ext := ".sql"
+	if gzipped {
+		ext = ".sql.gz"
+	}
+	return fmt.Sprintf("%s/%s/%s/%s%s", s.prefix, sanitizeName(dbName), stamp, sanitizeName(tableName), ext)
+}
+
 // sanitizeName keeps object keys safe regardless of the database name.
 func sanitizeName(name string) string {
 	var b strings.Builder

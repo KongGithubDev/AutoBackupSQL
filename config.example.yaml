@@ -1,5 +1,5 @@
 # =============================================================
-#  jmdb-backup configuration
+#  kdb-backup configuration
 #  Copy this file to config.yaml and fill in YOUR values.
 #  Every value supports ${ENV_VAR} so secrets can stay in
 #  environment variables instead of this file, e.g.
@@ -10,6 +10,10 @@ database:
   # Full path to mysqldump.exe. Leave empty to auto-detect on PATH and in
   # common install folders (Program Files\MariaDB*, XAMPP, Laragon, WAMP).
   mysqldumpPath: ""            # e.g. "C:\\Program Files\\MariaDB 11.4\\bin\\mysqldump.exe"
+
+  # Full path to mysql.exe (only used in per-table mode to list tables).
+  # Leave empty to auto-detect on PATH and next to mysqldump.
+  mysqlPath: ""                 # e.g. "C:\\Program Files\\MariaDB 11.4\\bin\\mysql.exe"
 
   host: "127.0.0.1"
   port: 3306
@@ -44,7 +48,10 @@ schedule:
 
 storage:
   compression: "gzip"          # "gzip" or "none"
-  objectPrefix: "backup"       # objects: backup/jmdatabase/2026-09-06_00-00-00.sql.gz
+  # true  = one .sql.gz per table: backup/jmdatabase/2026-09-06_00-00-00/<table>.sql.gz
+  # false = one combined .sql.gz per database: backup/jmdatabase/2026-09-06_00-00-00.sql.gz
+  perTable: true
+  objectPrefix: "backup"       # R2 folder that receives the backups
   retentionDays: 30            # delete R2 objects older than 30 days (0 = keep forever)
 
 cloudflareR2:

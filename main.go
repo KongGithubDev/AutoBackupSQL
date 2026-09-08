@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-const version = "1.0.0"
+const version = "1.1.0"
 
-const usageText = `jmdb-backup - MariaDB automatic backup to Cloudflare R2
+const usageText = `kdb-backup - MariaDB automatic backup to Cloudflare R2
 
 Usage:
-  jmdb-backup [options]
+  kdb-backup [options]
 
 Options:
   -config <file>   Path to config.yaml (default: "config.yaml" in the current dir)
@@ -87,7 +87,7 @@ func main() {
 func run(args []string) int {
 	opts, err := parseArgs(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "jmdb-backup:", err)
+		fmt.Fprintln(os.Stderr, "kdb-backup:", err)
 		os.Stderr.WriteString(usageText)
 		return pauseOnError(2)
 	}
@@ -98,14 +98,14 @@ func run(args []string) int {
 
 	cfg, err := LoadConfig(opts.configPath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "jmdb-backup:", err)
+		fmt.Fprintln(os.Stderr, "kdb-backup:", err)
 		fmt.Fprintln(os.Stderr, "Copy config.example.yaml to config.yaml and fill in your settings.")
 		return pauseOnError(2)
 	}
 
 	log, err := NewLogger(cfg.Logging.LogFile)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "jmdb-backup:", err)
+		fmt.Fprintln(os.Stderr, "kdb-backup:", err)
 		return pauseOnError(2)
 	}
 	defer log.Close()
@@ -137,7 +137,7 @@ func run(args []string) int {
 		return runOnce(cfg, store, log, startedAt)
 	}
 
-	log.Info("jmdb-backup v%s started (config: %s)", version, opts.configPath)
+	log.Info("kdb-backup v%s started (config: %s)", version, opts.configPath)
 	log.Info("schedule times: %s", strings.Join(cfg.Schedule.Times, ", "))
 	log.Info("databases: %s | R2 bucket: %s | prefix: %s | retentionDays: %d",
 		strings.Join(cfg.Database.Databases, ", "), cfg.R2.Bucket,
@@ -183,6 +183,14 @@ func runValidate(cfg *Config, store *r2Store, log *Logger, times []int) int {
 		fail("%v", err)
 	} else {
 		log.Info("mysqldump: found")
+	}
+	if cfg.Storage.PerTable {
+		dumpPath, _ := findMySQLDump(cfg.Database.MySQLDumpPath)
+		if _, err := findMySQL(cfg.Database.MySQLPath, dumpPath); err != nil {
+			fail("%v", err)
+		} else {
+			log.Info("mysql client (per-table mode): found")
+		}
 	}
 	if strings.Contains(cfg.R2.Endpoint, "ACCOUNT_ID") || cfg.R2.Endpoint == "" {
 		fail("cloudflareR2.endpoint must be set to https://<ACCOUNT_ID>.r2.cloudflarestorage.com (replace ACCOUNT_ID with your Cloudflare account id)")
@@ -244,7 +252,7 @@ func runScheduler(cfg *Config, store *r2Store, log *Logger, statePath string, st
 			log.Error("backup run failed: %v", err)
 			return false, now
 		}
-		log.Info("backup run finished: %d database(s) uploaded to R2", len(uploaded))
+		log.Info("backup run finished: %d object(s) uploaded to R2", len(uploaded))
 		return true, now
 	}
 

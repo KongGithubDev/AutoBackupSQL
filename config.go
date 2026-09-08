@@ -24,9 +24,12 @@ type DatabaseConfig struct {
 	// MySQLDumpPath: full path to mysqldump.exe. Empty = auto-detect
 	// (PATH lookup, then common MariaDB/MySQL install directories).
 	MySQLDumpPath string `yaml:"mysqldumpPath"`
-	Host          string `yaml:"host"`
-	Port          int    `yaml:"port"`
-	User          string `yaml:"user"`
+	// MySQLPath: full path to mysql.exe, only used in per-table mode to
+	// enumerate tables. Empty = auto-detect (PATH, then next to mysqldump).
+	MySQLPath string `yaml:"mysqlPath"`
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	User      string `yaml:"user"`
 	// Password is passed to mysqldump through the MYSQL_PWD environment
 	// variable (never visible on the command line). Supports ${ENV_VAR}.
 	Password string `yaml:"password"`
@@ -47,8 +50,11 @@ type ScheduleConfig struct {
 type StorageConfig struct {
 	// Compression: "gzip" (default) or "none".
 	Compression string `yaml:"compression"`
-	// ObjectPrefix: R2 folder that receives the backups
-	// (objects: <prefix>/<database>/<timestamp>.sql[.gz]).
+	// PerTable: dump and upload each table as its own object
+	// (objects: <prefix>/<database>/<timestamp>/<table>.sql[.gz])
+	// instead of one combined file per database.
+	PerTable bool `yaml:"perTable"`
+	// ObjectPrefix: R2 folder that receives the backups.
 	ObjectPrefix string `yaml:"objectPrefix"`
 	// RetentionDays: delete R2 objects older than this many days.
 	// 0 = keep forever. Only files ending in .sql / .sql.gz under
@@ -95,6 +101,7 @@ func defaultConfig() *Config {
 		},
 		Storage: StorageConfig{
 			Compression:   "gzip",
+			PerTable:      true,
 			ObjectPrefix:  "backup",
 			RetentionDays: 30,
 		},
@@ -129,6 +136,7 @@ func LoadConfig(path string) (*Config, error) {
 func (c *Config) expandEnv() error {
 	expand := func(s *string) { *s = strings.TrimSpace(os.ExpandEnv(strings.TrimSpace(*s))) }
 	expand(&c.Database.MySQLDumpPath)
+	expand(&c.Database.MySQLPath)
 	expand(&c.Database.Host)
 	expand(&c.Database.User)
 	expand(&c.Database.Password)

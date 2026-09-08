@@ -12,3 +12,6 @@ deploy/
 # runtime artifacts
 state.json
 backup.log
+
+# local Freebuff tooling
+.freebuff/

@@ -135,6 +135,17 @@ func TestObjectKeyAndSanitize(t *testing.T) {
 	}
 }
 
+func TestTableObjectKey(t *testing.T) {
+	s := &r2Store{prefix: "backup"}
+	ts := time.Date(2026, 9, 6, 0, 0, 0, 0, time.Local)
+	if got := s.tableObjectKey("jmdatabase", "players", ts, true); got != "backup/jmdatabase/2026-09-06_00-00-00/players.sql.gz" {
+		t.Fatalf("tableObjectKey = %q", got)
+	}
+	if got := s.tableObjectKey("jmdatabase", "my table/x", ts, false); got != "backup/jmdatabase/2026-09-06_00-00-00/my_table_x.sql" {
+		t.Fatalf("tableObjectKey sanitized = %q", got)
+	}
+}
+
 func TestStateRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	ts := time.Date(2026, 9, 6, 5, 0, 0, 0, time.UTC)

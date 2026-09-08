@@ -1,4 +1,4 @@
-# jmdb-backup
+# kdb-backup
 
 Automated **MariaDB** database backups to **Cloudflare R2**, delivered as a
 single native **Windows console `.exe`**.
@@ -6,9 +6,12 @@ single native **Windows console `.exe`**.
 The program stays in the console and dumps every configured database with
 `mysqldump` on a daily schedule (default `00:00`, `05:00`, `12:00`, `17:00`
 machine-local time), compresses each dump with gzip, and uploads it to an R2
-bucket through the S3 API. Everything is configurable from a YAML file — no
-recompilation needed — and optional retention cleanup deletes old backups
-automatically.
+bucket through the S3 API. By default **each table is dumped, compressed and
+uploaded as its own `.sql.gz` file** (one object per table, so you can restore
+a single table without touching the rest); a single combined file per database
+is still available via `storage.perTable: false`. Everything is configurable
+from a YAML file — no recompilation needed — and optional retention cleanup
+deletes old backups automatically.
 
 Built with Go, the binary is native machine code with symbols stripped, which
 makes it resistant to decompilation (see [Hardening](#hardening-and-decompilation)).
@@ -18,6 +21,10 @@ makes it resistant to decompilation (see [Hardening](#hardening-and-decompilatio
 - **Scheduled backups** at any list of daily times (`schedule.times`, default
   `00:00 / 05:00 / 12:00 / 17:00` local time)
 - **Multiple databases** per run (default: `jmdatabase`)
+- **Per-table backups** (default): every table becomes its own `.sql.gz` in
+  R2, e.g. `backup/jmdatabase/<timestamp>/players.sql.gz` — restore any single
+  table without the whole database. Set `storage.perTable: false` for one
+  combined file per database instead
 - **Complete dumps**: stored routines, triggers and events are included via
   `--routines --triggers --events`; `--single-transaction` for a consistent
   snapshot without locking InnoDB writes
@@ -42,17 +49,18 @@ makes it resistant to decompilation (see [Hardening](#hardening-and-decompilatio
 |---|---|
 | Windows 10/11 x64 | Where the `.exe` runs |
 | `mysqldump.exe` | Ships with MariaDB/MySQL. Path is auto-detected (PATH, then common install folders: `Program Files\MariaDB*`, XAMPP, Laragon, WAMP) or set explicitly in `config.yaml` |
+| `mysql.exe` | Only needed in per-table mode (the default) to list tables; auto-detected on PATH and next to `mysqldump`, or set via `database.mysqlPath` |
 | Cloudflare R2 | An existing bucket and an API token with **Object Read & Write** (and bucket permissions) scoped to that bucket |
 | Go 1.26+ | Only needed to build; the shipped `.exe` needs no runtime |
 
 ## Project layout
 
 ```
-jmdb-backup.exe        Built binary (console app)
+kdb-backup.exe          Built binary (console app)
 config.example.yaml    Configuration template
 config.go              Config loading, ${ENV_VAR} expansion, defaults
 main.go                CLI flags, scheduler loop, catch-up, validation
-backup.go              mysqldump -> gzip -> upload pipeline
+backup.go              mysqldump -> gzip -> upload pipeline (per table or per database)
 r2.go                  Cloudflare R2 client, upload, retention, gzip helper
 scheduler.go           Schedule math + persisted state
 log.go                 Timestamped console + file logger
@@ -75,16 +83,16 @@ or manually:
 
 ```bat
 go mod download
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o jmdb-backup.exe .
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o kdb-backup.exe .
 ```
 
-The result is a single static `jmdb-backup.exe` with no runtime dependencies.
+The result is a single static `kdb-backup.exe` with no runtime dependencies.
 
 > To make the binary considerably harder to reverse-engineer, build with
 > [garble](https://github.com/burrowers/garble) instead:
 > ```bat
 > go install mvdan.cc/garble@latest
-> garble -literals -tiny -ldflags "-s -w" build -o jmdb-backup.exe .
+> garble -literals -tiny -ldflags "-s -w" build -o kdb-backup.exe .
 > ```
 > See [Hardening](#hardening-and-decompilation).
 
@@ -96,7 +104,7 @@ copy config.example.yaml config.yaml
 
 ### 3. Prepare Cloudflare R2
 
-1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `jmdb-backups`).
+1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `kdb-backups`).
 2. R2 → **Manage R2 API Tokens** → create a token with **Object Read &
    Write** scoped to that bucket.
 3. Copy the **Access Key ID** and **Secret Access Key**.
@@ -141,9 +149,9 @@ setx R2_SECRET_ACCESS_KEY "your_secret_access_key"
 ### 5. Validate and run
 
 ```bat
-jmdb-backup.exe -validate      REM check config, mysqldump and R2 access
-jmdb-backup.exe -once          REM run one backup immediately and exit
-jmdb-backup.exe                REM stay in the console and run on schedule
+kdb-backup.exe -validate      REM check config, mysqldump, mysql client and R2 access
+kdb-backup.exe -once          REM run one backup immediately and exit
+kdb-backup.exe                REM stay in the console and run on schedule
 ```
 
 ## Configuration reference
@@ -153,6 +161,7 @@ Every string supports `${ENV_VAR}` / `$ENV_VAR` expansion.
 | Section / field | Type | Default | Description |
 |---|---|---|---|
 | `database.mysqldumpPath` | string | `""` | Full path to `mysqldump.exe`. Empty = auto-detect |
+| `database.mysqlPath` | string | `""` | Full path to `mysql.exe` (per-table mode only). Empty = auto-detect |
 | `database.host` | string | `127.0.0.1` | MariaDB/MySQL host |
 | `database.port` | int | `3306` | Server port |
 | `database.user` | string | `root` | Backup user |
@@ -162,6 +171,7 @@ Every string supports `${ENV_VAR}` / `$ENV_VAR` expansion.
 | `schedule.times` | string[] | `["00:00","05:00","12:00","17:00"]` | Daily backup times, 24h `HH:MM` local |
 | `schedule.catchUpOnStartup` | bool | `true` | Run a backup on start if a slot was missed |
 | `storage.compression` | string | `gzip` | `gzip` or `none` |
+| `storage.perTable` | bool | `true` | `true` = one `.sql.gz` per table; `false` = one combined file per database |
 | `storage.objectPrefix` | string | `backup` | R2 folder for backups |
 | `storage.retentionDays` | int | `30` | Delete R2 objects older than N days (`0` = keep forever) |
 | `cloudflareR2.endpoint` | string | — | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
@@ -177,6 +187,16 @@ Every string supports `${ENV_VAR}` / `$ENV_VAR` expansion.
 
 ### Object layout in R2
 
+Per-table mode (default) — one object per table, grouped by run timestamp:
+
+```
+backup/jmdatabase/2026-09-06_00-00-00/players.sql.gz
+backup/jmdatabase/2026-09-06_00-00-00/vehicles.sql.gz
+...
+```
+
+Single-file mode (`storage.perTable: false`):
+
 ```
 backup/jmdatabase/2026-09-06_00-00-00.sql.gz
 ```
@@ -185,12 +205,12 @@ backup/jmdatabase/2026-09-06_00-00-00.sql.gz
 
 | Command | Description |
 |---|---|
-| `jmdb-backup.exe` | Resident mode: sleeps until the next scheduled time, backs up, repeats |
-| `jmdb-backup.exe -config <file>` | Use a different config path (default `config.yaml`) |
-| `jmdb-backup.exe -once` | Run a single backup immediately, then exit |
-| `jmdb-backup.exe -validate` | Check config, locate `mysqldump`, test R2 access, then exit |
-| `jmdb-backup.exe -next` | Print the next six upcoming backup times, then exit |
-| `jmdb-backup.exe -h` | Help |
+| `kdb-backup.exe` | Resident mode: sleeps until the next scheduled time, backs up, repeats |
+| `kdb-backup.exe -config <file>` | Use a different config path (default `config.yaml`) |
+| `kdb-backup.exe -once` | Run a single backup immediately, then exit |
+| `kdb-backup.exe -validate` | Check config, locate `mysqldump`/`mysql`, test R2 access, then exit |
+| `kdb-backup.exe -next` | Print the next six upcoming backup times, then exit |
+| `kdb-backup.exe -h` | Help |
 
 **Exit codes:** `0` success, `1` backup/validation failure, `2` bad usage or
 unreadable config. When double-clicked, the console stays open on error so the
@@ -205,7 +225,7 @@ message can be read.
   window — e.g. one daily backup at `00:00`:
 
 ```bat
-schtasks /Create /TN "jmdb-backup" /TR "C:\path\to\jmdb-backup.exe -once -config C:\path\to\config.yaml" /SC DAILY /ST 00:00 /F
+schtasks /Create /TN "kdb-backup" /TR "C:\path\to\kdb-backup.exe -once -config C:\path\to\config.yaml" /SC DAILY /ST 00:00 /F
 ```
 
 For four runs per day via Task Scheduler, create four tasks with different
@@ -216,7 +236,7 @@ For four runs per day via Task Scheduler, create four tasks with different
 Only **two files** are needed on the destination machine:
 
 ```
-jmdb-backup.exe
+kdb-backup.exe
 config.yaml
 ```
 
@@ -239,7 +259,7 @@ deploy.bat D:\backup
 
 Behavior:
 
-- **Refuses to run** if `jmdb-backup.exe` or `config.yaml` is missing, or if
+- **Refuses to run** if `kdb-backup.exe` or `config.yaml` is missing, or if
   you point it at the project root.
 - **Never closes silently** — the window stays open with `Press any key to
   continue` after both success and failure, so double-clicking always shows
@@ -263,8 +283,28 @@ that machine.
 
 ## Restoring a backup
 
-Download an object from R2 (any S3 client works — `rclone`, `aws s3`, the R2
-dashboard), decompress and import:
+Download the objects from R2 (any S3 client works — `rclone`, `aws s3`, the
+R2 dashboard), decompress and import.
+
+**Per-table mode (default)** — restore a single table:
+
+```bat
+gzip -d players.sql.gz
+mysql -u root -p jmdatabase < players.sql
+```
+
+Or restore the whole database by importing every table file in the run folder.
+Each table file is self-contained (includes routines/triggers/events), and
+because tables are dumped individually, foreign-key order can matter — import
+with checks disabled if you hit FK errors:
+
+```bat
+mysql -u root -p -e "SET FOREIGN_KEY_CHECKS=0;" jmdatabase
+REM then import each table, e.g.: gzip -dc players.sql.gz | mysql -u root -p jmdatabase
+mysql -u root -p -e "SET FOREIGN_KEY_CHECKS=1;" jmdatabase
+```
+
+**Single-file mode** (`storage.perTable: false`):
 
 ```bat
 gzip -d jmdatabase_2026-09-06_00-00-00.sql.gz
@@ -273,11 +313,16 @@ mysql -u root -p jmdatabase < jmdatabase_2026-09-06_00-00-00.sql
 
 ## How a backup run works
 
-1. `mysqldump` is located (configured path → PATH → common install folders).
-2. For each database: `mysqldump` streams a full logical dump to a temporary
-   file (routines, triggers and events included; password via `MYSQL_PWD`).
-3. The dump is compressed with gzip (`storage.compression`).
-4. The finished `.sql.gz` is uploaded to R2 under `objectPrefix/<db>/<timestamp>.sql.gz`.
+1. `mysqldump` (and, in per-table mode, the `mysql` client) is located
+   (configured path → PATH → common install folders).
+2. Per-table mode (default): `SHOW TABLES` lists the tables, then each table
+   is dumped individually. Single-file mode: the whole database is dumped at
+   once. In both modes routines, triggers and events are included and the
+   password goes via `MYSQL_PWD`.
+3. Every dump is compressed with gzip (`storage.compression`).
+4. The finished `.sql.gz` files are uploaded to R2 under
+   `objectPrefix/<db>/<timestamp>/<table>.sql.gz` (per-table) or
+   `objectPrefix/<db>/<timestamp>.sql.gz` (single-file).
 5. If `retentionDays > 0`, R2 objects under the prefix older than the cutoff
    are deleted.
 6. On success the run timestamp is persisted to `state.json`; on failure it is
@@ -297,7 +342,7 @@ To raise the bar further:
 
 ```bat
 go install mvdan.cc/garble@latest
-garble -literals -tiny -ldflags "-s -w" build -o jmdb-backup.exe .
+garble -literals -tiny -ldflags "-s -w" build -o kdb-backup.exe .
 ```
 
 `garble` obfuscates control flow, identifiers and string literals.
@@ -324,6 +369,7 @@ garble -literals -tiny -ldflags "-s -w" build -o jmdb-backup.exe .
 | Symptom | Fix |
 |---|---|
 | `mysqldump not found` | Set `database.mysqldumpPath` to the full path, e.g. `C:\Program Files\MariaDB 11.4\bin\mysqldump.exe` |
+| `mysql client not found` | Only in per-table mode: set `database.mysqlPath` to the full path, e.g. `C:\Program Files\MariaDB 11.4\bin\mysql.exe` |
 | R2 `tls: handshake failure` | The endpoint host is wrong — use `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `bucket ... does not exist` | Create the bucket, or check the token permission scope |
 | `AccessDenied` on upload | The API token needs **Object Read & Write** for that bucket |
